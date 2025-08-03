@@ -1,4 +1,5 @@
 import regex as re
+from tqdm import tqdm
 from collections import defaultdict
 
 
@@ -45,37 +46,6 @@ PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s
 
 PairwiseFrequency = dict[tuple[bytes, bytes], int]
 PretokenFrequency = dict[tuple[bytes], int]
-
-
-def merge_vocab(
-    pair: tuple[bytes, bytes], vocab: Vocabulary, frequency: dict[tuple[bytes], int]
-):
-    """Merge pair of tokens into one token, add to vocab, and update frequency with new tokens"""
-    merged_frequency: dict[tuple[bytes], int] = defaultdict(int)
-    merged_token = pair[0] + pair[1]
-    vocab.add(merged_token)
-
-    # update each word with new merged token
-    pretokens = list(frequency.keys())
-    for pretoken in pretokens:
-        new_tokens = pretoken
-        if len(pretoken) > 1:
-            new_tokens = [pretoken[0]]
-            for i in range(1, len(pretoken)):
-                token = pretoken[i]
-                curr_pair = (new_tokens[-1], token)
-                if curr_pair == pair:
-                    new_tokens.pop()
-                    new_tokens.append(merged_token)
-                else:
-                    new_tokens.append(token)
-
-            new_tokens = tuple(new_tokens)
-
-        freq = frequency[pretoken]
-        merged_frequency[new_tokens] = freq
-
-    return vocab, merged_frequency
 
 
 def bpe_merge(
@@ -138,16 +108,24 @@ def bpe_merge(
 
 
 def train_bpe(
-    input_path: str, vocab_size: int, special_tokens: list[str]
+    input_path: str,
+    vocab_size: int,
+    special_tokens: list[str],
+    num_processes: int = 1,
+    show_tqdm: bool = True,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """Train Byte Pair Encoding (BPE) on the text in `input_path`"""
-    print("training bpe tokenizer")
 
     vocab = Vocabulary(special_tokens)
     merges: list[tuple[bytes, bytes]] = []
 
+    # parallized pretokenization
+
     with open(input_path) as f:
         dataset = f.read()
+
+    print(dataset)
+    raise RuntimeError
 
     freq: dict[tuple[bytes], int] = defaultdict(int)
 
@@ -176,7 +154,11 @@ def train_bpe(
                 pairwise_tokens = (pretoken[i], pretoken[i + 1])
                 pairwise_freq[pairwise_tokens] += count
 
-    for m in range(num_merges):
+    merges_iter = range(num_merges)
+    if show_tqdm:
+        merges_iter = tqdm(merges_iter, desc="Merges")
+
+    for m in merges_iter:
         # get pairwise tokens with the highest frequency
         max_pairwise_count = max(pairwise_freq.values())
         pair = max([k for k, v in pairwise_freq.items() if v == max_pairwise_count])
@@ -184,54 +166,5 @@ def train_bpe(
         # bpe merge step
         merges.append(pair)
         vocab, freq, pairwise_freq = bpe_merge(pair, vocab, freq, pairwise_freq)
-
-    return vocab.as_dict(), merges
-
-
-def train_bpe_slow(
-    input_path: str, vocab_size: int, special_tokens: list[str]
-) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
-    """Train Byte Pair Encoding (BPE) on the text in `input_path`"""
-    print("training bpe tokenizer")
-
-    vocab = Vocabulary(special_tokens)
-    merges: list[tuple[bytes, bytes]] = []
-
-    with open(input_path) as f:
-        dataset = f.read()
-
-    frequency: dict[tuple[bytes], int] = defaultdict(int)
-
-    # split by special tokens and get pretokens
-    chunks = re.split("|".join(special_tokens), dataset)
-
-    pretokens = []
-    for chunk in chunks:
-        chunk_pretokens = re.findall(PAT, chunk)
-        pretokens.extend(chunk_pretokens)
-
-    # count frequency of each pretoken
-    for pretoken in pretokens:
-        token_bytes = tuple(bytes([byte]) for byte in pretoken.encode("utf-8"))
-        frequency[token_bytes] += 1
-
-    num_merges = vocab_size - len(vocab)
-
-    for m in range(num_merges):
-        # count up frequency of pairwise tokens
-        pairwise_freq: dict[tuple[bytes, bytes], int] = defaultdict(int)
-        for pretoken, freq in frequency.items():
-            if len(pretoken) > 1:
-                for i in range(len(pretoken) - 1):
-                    pairwise_tokens = (pretoken[i], pretoken[i + 1])
-                    pairwise_freq[pairwise_tokens] += freq
-
-        # get pairwise tokens with the highest frequency
-        max_pairwise_count = max(pairwise_freq.values())
-        pair = max([k for k, v in pairwise_freq.items() if v == max_pairwise_count])
-
-        # merge pairwise token into one token, add to vocab, and update freq
-        merges.append(pair)
-        vocab, frequency = merge_vocab(pair, vocab, frequency)
 
     return vocab.as_dict(), merges
