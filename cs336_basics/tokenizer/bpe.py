@@ -1,6 +1,9 @@
+import os
 import regex as re
 from tqdm import tqdm
 from collections import defaultdict
+
+from .pretokenization import pretokenize, pretokenize_text
 
 
 class Vocabulary:
@@ -107,11 +110,14 @@ def bpe_merge(
     return vocab, freq, pairwise_freq
 
 
+CPU_COUNT = os.cpu_count() or 1
+
+
 def train_bpe(
     input_path: str,
     vocab_size: int,
     special_tokens: list[str],
-    num_processes: int = 1,
+    num_processes: int = CPU_COUNT,
     show_tqdm: bool = True,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """Train Byte Pair Encoding (BPE) on the text in `input_path`"""
@@ -119,30 +125,10 @@ def train_bpe(
     vocab = Vocabulary(special_tokens)
     merges: list[tuple[bytes, bytes]] = []
 
-    # parallized pretokenization
-
-    with open(input_path) as f:
-        dataset = f.read()
-
-    print(dataset)
-    raise RuntimeError
-
-    freq: dict[tuple[bytes], int] = defaultdict(int)
-
-    # protokenization: split by special tokens and get pretokens
-    chunks = re.split("|".join(special_tokens), dataset)
-
-    texts = []
-    for chunk in chunks:
-        chunk_texts = re.findall(PAT, chunk)
-        texts.extend(chunk_texts)
-
-    # count frequency of each pretoken
-    # each pretoken is a sequence of utf-8 bytes, initially a sequence of 1 bytes which
-    # are merged during bpe training
-    for text in texts:
-        pretoken_bytes = tuple(bytes([byte]) for byte in text.encode("utf-8"))
-        freq[pretoken_bytes] += 1
+    # parallized pretokenization - pretoken to their frequency
+    freq = pretokenize(
+        input_path, special_tokens=special_tokens, num_processes=num_processes
+    )
 
     num_merges = vocab_size - len(vocab)
 
