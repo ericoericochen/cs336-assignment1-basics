@@ -68,7 +68,7 @@ input_path = os.path.abspath(
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 
-def pretokenize_text(text: str, special_tokens: list[str]) -> dict[tuple[bytes], int]:
+def pretokenize_text(text: str, special_tokens: list[str]) -> dict[bytes, int]:
     freq: dict[tuple[bytes], int] = defaultdict(int)
     chunks = re.split(
         "|".join([re.escape(special_token) for special_token in special_tokens]), text
@@ -76,11 +76,7 @@ def pretokenize_text(text: str, special_tokens: list[str]) -> dict[tuple[bytes],
 
     for chunk in chunks:
         for match in re.finditer(PAT, chunk):
-            # pretoken = match.group(0).encode
             pretoken = match.group(0).encode("utf-8")
-
-            # convert pretoken to tuple of utf-8 bytes and increment its frequency
-            # pretoken_bytes = tuple(bytes([byte]) for byte in pretoken.encode("utf-8"))
             freq[pretoken] += 1
 
     return freq
@@ -97,7 +93,7 @@ def stream_file_chunks(input_path: str, num_chunks: int):
 
 def pretokenize(
     input_path: str, special_tokens: list[str], num_processes: int = 1
-) -> dict[tuple[bytes], int]:
+) -> dict[bytes, int]:
     """
     Pretokenize the corpus at `input_path` with `num_processes` and returns
     a dict containing the pretokens and their frequency. The special tokens
