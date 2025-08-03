@@ -76,11 +76,12 @@ def pretokenize_text(text: str, special_tokens: list[str]) -> dict[tuple[bytes],
 
     for chunk in chunks:
         for match in re.finditer(PAT, chunk):
-            pretoken = match.group(0)
+            # pretoken = match.group(0).encode
+            pretoken = match.group(0).encode("utf-8")
 
             # convert pretoken to tuple of utf-8 bytes and increment its frequency
-            pretoken_bytes = tuple(bytes([byte]) for byte in pretoken.encode("utf-8"))
-            freq[pretoken_bytes] += 1
+            # pretoken_bytes = tuple(bytes([byte]) for byte in pretoken.encode("utf-8"))
+            freq[pretoken] += 1
 
     return freq
 
@@ -111,23 +112,8 @@ def pretokenize(
         # parallelize pretokenization by dividing corpus into chunks
         # then merging the pretoken frequency together
         filestream = stream_file_chunks(input_path, num_processes)
-        for mini_freq in tqdm(
-            executor.map(worker, filestream), total=num_processes, desc="Pretokenizing"
-        ):
+        for mini_freq in executor.map(worker, filestream):
             for k, v in mini_freq.items():
                 freq[k] += v
 
     return freq
-
-
-if __name__ == "__main__":
-    num_processes = 4
-    with open(input_path, mode="rb") as f:
-        boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
-
-        for start, end in zip(boundaries[:-1], boundaries[1:]):
-            f.seek(start)
-            chunk = f.read(end - start).decode("utf-8", errors="ignore")
-            print(chunk)
-            print("#####")
-            break

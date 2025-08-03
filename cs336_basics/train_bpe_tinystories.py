@@ -6,11 +6,12 @@ from cs336_basics.tokenizer.bpe import train_bpe
 
 def main():
     input_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../data/TinyStoriesV2-GPT4-train.txt")
+        os.path.join(os.path.dirname(__file__), "../tests/fixtures/address.txt")
+        # os.path.join(os.path.dirname(__file__), "../data/TinyStoriesV2-GPT4-train.txt")
         # os.path.join(os.path.dirname(__file__), "../data/TinyStoriesV2-GPT4-train.txt")
     )
     print(input_path)
-    VOCAB_SIZE = 10000
+    VOCAB_SIZE = 256 + 1 + 5
 
     print("[INFO] Training BPE on TinyStories")
     start_time = time.time()
@@ -27,4 +28,5 @@ def main():
 
 
 if __name__ == "__main__":
-    cProfile.run("main()")
+    # cProfile.run("main()")
+    main()
