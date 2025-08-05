@@ -2,7 +2,7 @@ import cProfile
 import os
 import time
 
-from cs336_basics.tokenizer.bpe import train_bpe
+from cs336_basics.bpe.train import train_bpe
 
 
 def main():

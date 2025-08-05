@@ -91,6 +91,10 @@ def stream_file_chunks(input_path: str, num_chunks: int):
             yield chunk
 
 
+def get_pretoken_frequency():
+    pass
+
+
 def pretokenize(
     input_path: str, special_tokens: list[str], num_processes: int = 1
 ) -> dict[bytes, int]:
@@ -113,3 +117,25 @@ def pretokenize(
                 freq[k] += v
 
     return freq
+
+
+def get_pretokens(text: str, special_tokens: list[str]) -> list[str]:
+    if len(special_tokens) == 0:
+        chunks = [text]
+    else:
+        chunks = re.split(
+            "|".join([re.escape(special_token) for special_token in special_tokens]),
+            text,
+        )
+
+    pretokens = []
+    for chunk in chunks:
+        for match in re.finditer(PAT, chunk):
+            pretoken = match.group(0).encode("utf-8")
+            pretokens.append(pretoken)
+
+    return pretokens
+
+
+def pretokenize_iter():
+    pass
