@@ -123,16 +123,21 @@ def get_pretokens(text: str, special_tokens: list[str]) -> list[str]:
     if len(special_tokens) == 0:
         chunks = [text]
     else:
+        # split by special tokens
+        # sort special tokens by length in descending order to handle overlapping special tokens
         chunks = re.split(
-            "|".join([re.escape(special_token) for special_token in special_tokens]),
+            f"({'|'.join(re.escape(tok) for tok in sorted(special_tokens, key=len, reverse=True))})",
             text,
         )
 
     pretokens = []
     for chunk in chunks:
-        for match in re.finditer(PAT, chunk):
-            pretoken = match.group(0).encode("utf-8")
-            pretokens.append(pretoken)
+        if chunk in special_tokens:
+            pretokens.append(chunk)
+        else:
+            for match in re.finditer(PAT, chunk):
+                pretoken = match.group(0)
+                pretokens.append(pretoken)
 
     return pretokens
 
