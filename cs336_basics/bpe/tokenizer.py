@@ -36,10 +36,11 @@ class BPETokenizer:
         pass
 
     def _encode_pretoken(self, pretoken: str) -> list[int]:
-        # check if special token
+        # check if pretoken is a special token and return its id
         if pretoken in self.special_tokens:
             return [self.token_to_id[pretoken.encode("utf-8")]]
 
+        # divide pretoken into utf-8 bytes
         tokens = tuple(bytes([token]) for token in pretoken.encode("utf-8"))
 
         # repeat until no merges can be applied
@@ -49,7 +50,6 @@ class BPETokenizer:
 
             # find applicable merges
             applicable_merges = [pair for pair in pairs if pair in self.merges_to_idx]
-            # print("applicable merges")
             if len(applicable_merges) == 0:
                 break
 
@@ -67,7 +67,6 @@ class BPETokenizer:
 
             tokens = tuple(new_tokens)
 
-        # print(tokens)
         ids = [self.token_to_id[token] for token in tokens]
         return ids
 
@@ -80,7 +79,9 @@ class BPETokenizer:
         return ids
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
-        pass
+        for chunk in iterable:
+            ids = self.encode(chunk)
+            yield from ids
 
     def decode(self, ids: list[int]) -> str:
         decoded_bytes = b""
